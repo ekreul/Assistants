@@ -1,1 +1,4 @@
-pip freeze > requirements.txt
+Flask==3.1.1
+openai==1.82.0
+twilio==9.6.1
+requests==2.32.3
