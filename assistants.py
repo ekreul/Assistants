@@ -8,10 +8,10 @@ import smtplib
 from email.message import EmailMessage
 
 app = Flask(__name__)
-openai.api_key = "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"
+openai.api_key = os.getenv("OPENAI_API_KEY") 
 
-account_sid = "ACa7f4364ac85909c8c45c27c3182f415c"
-auth_token = "bb46a01ebd8d72dbe9e4d6caf6953ade"
+account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+auth_token = os.getenv("TWILIO_AUTH_TOKEN")
 client = Client(account_sid, auth_token)
 
 callers = {}
