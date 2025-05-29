@@ -87,7 +87,7 @@ def handle_voice(persona):
     try:
         print(f"🧠 Prompt: {system_prompt}")
         print(f"🗣️ User said: {speech_result}")
-        chat_response = openai.chat.completions.create(
+        chat_response = openai.ChatCompletion.create(
             model="gpt-4o",
             messages=messages
         )
