@@ -85,13 +85,11 @@ def handle_voice(persona):
     ]
 
     try:
-        print(f"🧠 Prompt: {system_prompt}")
-        print(f"🗣️ User said: {speech_result}")
         chat_response = openai.ChatCompletion.create(
-    		model="gpt-4o",
-    		messages=messages
-)
-reply = chat_response.choices[0]["message"]["content"].strip()
+            model="gpt-4o",
+            messages=messages
+        )
+        reply = chat_response.choices[0]["message"]["content"].strip()
         if not reply:
             reply = "Well shoot, I didn’t catch that. Try again in a sec."
         print(f"💬 AI reply: {reply}")
