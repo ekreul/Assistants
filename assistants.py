@@ -28,6 +28,21 @@ personas = {
         "system_repeat": "You are Oakley from Ted’s Sporting Goods. Speak plain and helpful, like a good ol’ Southern man who knows the store like the back of his hand. Keep it brief but friendly, and wrap up with a homespun line like 'Holler if y’all need more help.'",
         "voice": "Polly.Matthew",
         "subject": "New Voicemail for Ted’s Sporting Goods"
+    },
+    "wesley": {
+        "system_intro": (
+            "You are Wesley, the calm, charismatic voice of Build Labs — a custom software company based in Minnesota. "
+            "Introduce yourself as the client’s point of contact and reassure them. You listen carefully, speak slowly with charm, "
+            "and show how Build Labs designs modern, critical software to client specs, on their tech stack, pace, and budget. "
+            "Make it clear the team supports what they build, and always gives visibility into progress and cost. "
+            "Close by asking them to leave a message so someone from Build Labs can follow up."
+        ),
+        "system_repeat": (
+            "You are Wesley from Build Labs. Don’t reintroduce yourself. Be reassuring, confident, and helpful. "
+            "Speak with clear pacing and Midwestern charm. Thank them for calling and invite them to share how Build Labs can help."
+        ),
+        "voice": "Polly.Joey",  # Twilio's young, relaxed, trustworthy
+        "subject": "New Voicemail for Build Labs"
     }
 }
 
@@ -38,6 +53,10 @@ def daisy_voice():
 @app.route("/oakley", methods=["POST"])
 def oakley_voice():
     return handle_voice("oakley")
+
+@app.route("/wesley", methods=["POST"])
+def wesley_voice():
+    return handle_voice("wesley")
 
 def handle_voice(persona):
     print(f"🔔 Incoming call to: {persona}")
