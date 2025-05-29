@@ -41,7 +41,7 @@ personas = {
             "You are Wesley from Build Labs. Don’t reintroduce yourself. Be reassuring, confident, and helpful. "
             "Speak with clear pacing and Midwestern charm. Thank them for calling and invite them to share how Build Labs can help."
         ),
-        "voice": "Polly.Mathew",  # Twilio's young, relaxed, trustworthy
+        "voice": "Polly.Matthew",  # Twilio's young, relaxed, trustworthy
         "subject": "New Voicemail for Build Labs"
     }
 }
