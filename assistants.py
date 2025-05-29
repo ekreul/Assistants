@@ -85,16 +85,17 @@ def handle_voice(persona):
     ]
 
     try:
-        chat_response = openai.ChatCompletion.create(
+        chat_response = openai.chat.completions.create(
             model="gpt-4o",
             messages=messages
         )
-        reply = chat_response.choices[0]["message"]["content"].strip()
+        reply = chat_response.choices[0].message.content.strip()
         if not reply:
             reply = "Well shoot, I didn’t catch that. Try again in a sec."
         print(f"💬 AI reply: {reply}")
     except Exception as e:
         import traceback
+        print("❌ OpenAI error:", e)
         traceback.print_exc()
         reply = "Well shoot, somethin’ went sideways. Try me again in a minute."
 
