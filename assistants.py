@@ -65,7 +65,7 @@ personas = {
     "subject": "New Voicemail for Auntie Jenny's Market Booth"
 }
 
-}  👈 closes personas dictionary do not move or delete
+}  # closes personas dictionary do not move or delete
 
 @app.route("/daisy", methods=["POST"])
 def daisy_voice():
