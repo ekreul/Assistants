@@ -43,8 +43,8 @@ personas = {
         ),
         "voice": "Polly.Matthew",  # Twilio's young, relaxed, trustworthy
         "subject": "New Voicemail for Build Labs"
-    }
-},
+    },
+
 "lilly": {
     "system_intro": (
         "You are Lilly, a playful 7-year-old girl with a country twang and a big imagination. "
@@ -64,6 +64,8 @@ personas = {
     "voice": "Polly.Ivy",
     "subject": "New Voicemail for Auntie Jenny's Market Booth"
 }
+
+},
 
 @app.route("/daisy", methods=["POST"])
 def daisy_voice():
