@@ -171,7 +171,7 @@ stores = [
     "specials": "First Friday discounts; email subscriber specials.",
     "events": "Community nights and crafting meetups.",
     "about": "A sweet shop with sustainable soul\u2014perfect for thoughtful gifts and Tennessee-made goods.",
-    "product_brands": [
+    "brands": [
       "Bee\u2019s Wrap",
       "Sierra Sage",
       "Bambino",
@@ -875,12 +875,12 @@ stores = [
 
 
 field_keywords = {
-    "specials": ["special", "sale", "deal"],
-    "events": ["event", "market", "festival"],
-    "brands": ["brand", "label", "product"],
-    "hours": ["hour", "open", "when"],
-    "website": ["website", "site"],
-    "data_quality_score": ["score", "data", "quality"]
+    "specials": ["special", "sale", "deal","save","discount","coupon],
+    "events": ["event", "market", "festival","show","parade",friday","muleday],
+    "brands": ["brand", "label", "product","logo"],
+    "hours": ["hour", "open", "when","closing"],
+    "website": ["website", "site","page"],
+    "data_quality_score": ["score", "data", "quality","current"]
 }
 
 @app.route("/daisy", methods=["POST"])
@@ -893,20 +893,24 @@ def daisy_voice():
         store = next((s for s in stores if s["store_name"].lower() == session["store_match"].lower()), None)
         if not store:
             session.pop("store_match")
-            response.say("Sorry, I couldn’t find that info anymore.", voice="Polly.Ivy")
+            response.say("Sorry, I couldn’t find that.", voice="Polly.Ivy")
             return Response(str(response), mimetype="text/xml")
 
         if cleaned in ["yes", "yeah", "yep"]:
             session["store_confirmed"] = True
             response.say(store["style"], voice="Polly.Ivy")
-            response.say("You can ask me about hours, specials, events, or brands.", voice="Polly.Ivy")
+            response.say("Ask me about hours, specials, events, or brands.", voice="Polly.Ivy")
+	    response.say("Anything else, hon?", voice="Polly.Ivy")
+	    gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
+	    gather.say("Go ahead, I’m listenin’.", voice="Polly.Ivy")
+	    response.append(gather)
         elif cleaned in ["no", "nope"]:
             session.pop("store_match")
             response.say("No worries, try saying the store name again.", voice="Polly.Ivy")
         else:
-            response.say("I didn’t quite catch that. Was it yes or no?", voice="Polly.Ivy")
+            response.say("I didn’t quite catch that.", voice="Polly.Ivy")
             gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
-            gather.say("Please say yes or no.", voice="Polly.Ivy")
+            gather.say("yes or no.", voice="Polly.Ivy")
             response.append(gather)
         return Response(str(response), mimetype="text/xml")
 
@@ -926,7 +930,7 @@ def daisy_voice():
                     response.say(value, voice="Polly.Ivy")
                     break
         else:
-            response.say("I'm not sure what you meant. Try asking about specials, events, or hours.", voice="Polly.Ivy")
+            response.say("not sure what ya meant, you want specials, events, or hours.", voice="Polly.Ivy")
 
         gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
         gather.say("Go ahead, I’m listenin’.", voice="Polly.Ivy")
