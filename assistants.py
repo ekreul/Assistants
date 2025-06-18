@@ -497,6 +497,7 @@ stores = [
     "data_quality_score": 9,
     "update_estimate": "This week"
   },
+  {
   "store_name": "Hummingbird Cottage",
     "location": "Columbia, TN",
     "website": "https://www.facebook.com/HummingbirdCottageColumbia/",
@@ -521,7 +522,7 @@ stores = [
     "data_quality_score": 7,
     "update_estimate": "Last year"
   },
-  {
+  { 
     "store_name": "Vintage Winery & Marketplace",
     "location": "Columbia, TN",
     "website": "https://www.vintagewinerytn.com/",
