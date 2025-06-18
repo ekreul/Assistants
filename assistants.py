@@ -1,15 +1,13 @@
+import os
 from flask import Flask, request, Response
+from twilio.rest import Client
 from twilio.twiml.voice_response import VoiceResponse, Gather
-import difflib
-import json
+import datetime
 import smtplib
 from email.message import EmailMessage
-import os
-import datetime
-from twilio.rest import Client
 
 app = Flask(__name__)
-client = Client(os.environ.get("TWILIO_ACCOUNT_SID"), os.environ.get("TWILIO_AUTH_TOKEN"))
+client = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
 
 # Daisy store profiles
 stores = [
@@ -90,32 +88,40 @@ stores = [
     }
 ]
 
-def send_email_with_recording(recording_url, caller_number):
-    from_email = "ethan.kreul.pro@gmail.com"
-    to_email = "ethan.kreul.pro@gmail.com"
-    smtp_server = "smtp.gmail.com"
-    smtp_port = 587
-    smtp_user = "ethan.kreul.pro@gmail.com"
-    smtp_pass = "kktd tzzq hfvo fjjr"
+@app.route("/recording-status", methods=["POST"])
+def recording_status():
+    from_number = request.form.get("From")
+    recording_url = request.form.get("RecordingUrl") + ".mp3"
 
     msg = EmailMessage()
-    msg["Subject"] = "New Call Recording from Daisy"
-    msg["From"] = from_email
-    msg["To"] = to_email
-    msg.set_content(f"You have a new voicemail.\nFrom: {caller_number}\nRecording: {recording_url}\n")
+    msg["Subject"] = "New Voicemail Received"
+    msg["From"] = "ethan.kreul.pro@gmail.com"
+    msg["To"] = "ethan.kreul.pro@gmail.com"
+    msg.set_content(f"\nYou have a new voicemail.\nFrom: {from_number}\nRecording: {recording_url}\n")
 
     try:
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.send_message(msg)
+        with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
+            smtp.starttls()
+            smtp.login("ethan.kreul.pro@gmail.com", "kktd tzzq hfvo fjjr")
+            smtp.send_message(msg)
     except Exception as e:
         print("❌ Email failed:", e)
 
-@app.route("/recording-status", methods=["POST"])
-def recording_status():
-    recording_url = request.form.get("RecordingUrl") + ".mp3"
-    caller_number = request.form.get("From", "Unknown")
-
-    send_email_with_recording(recording_url, caller_number)
     return ("", 204)
+
+@app.route("/daisy", methods=["POST"])
+def daisy():
+    call_sid = request.form.get("CallSid")
+    try:
+        client.calls(call_sid).recordings.create(
+            recording_status_callback="https://sharp-select-titmouse.ngrok-free.app/recording-status",
+            recording_status_callback_method="POST"
+        )
+    except Exception as e:
+        print(f"⚠️ Recording failed: {e}")
+
+    response = VoiceResponse()
+    gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
+    gather.say("Howdy! This is Daisy. What store are y’all callin’ about today?", voice="Polly.Ivy")
+    response.append(gather)
+    return Response(str(response), mimetype="text/xml")
