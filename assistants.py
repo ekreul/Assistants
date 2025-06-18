@@ -875,7 +875,7 @@ stores = [
 
 
 field_keywords = {
-    "specials": ["special", "sale", "deal","save","discount","coupon],
+    "specials": ["special", "sale", "deal","save","discount","coupon"],
     "events": ["event", "market", "festival","show","parade",friday","muleday],
     "brands": ["brand", "label", "product","logo"],
     "hours": ["hour", "open", "when","closing"],
