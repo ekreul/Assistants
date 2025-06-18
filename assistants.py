@@ -894,7 +894,12 @@ def daisy_voice():
         if not store:
             session.pop("store_match")
             response.say("Sorry, I couldn’t find that.", voice="Polly.Ivy")
-        elif cleaned in ["yes", "yeah", "yep"]:
+            gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
+            gather.say("Try saying the store name again.", voice="Polly.Ivy")
+            response.append(gather)
+            return Response(str(response), mimetype="text/xml")
+
+        if cleaned in ["yes", "yeah", "yep"]:
             session["store_confirmed"] = True
             response.say(store["style"], voice="Polly.Ivy")
             response.say("Ask me about hours, specials, events, or brands.", voice="Polly.Ivy")
@@ -903,6 +908,7 @@ def daisy_voice():
             gather.say("Go ahead, I’m listenin’.", voice="Polly.Ivy")
             response.append(gather)
             return Response(str(response), mimetype="text/xml")
+
         elif cleaned in ["no", "nope"]:
             session.pop("store_match")
             response.say("No worries, try saying the store name again.", voice="Polly.Ivy")
@@ -910,13 +916,14 @@ def daisy_voice():
             gather.say("Go ahead, I’m listenin’.", voice="Polly.Ivy")
             response.append(gather)
             return Response(str(response), mimetype="text/xml")
+
         elif session.get("store_confirmed"):
             for field, keywords in field_keywords.items():
                 if any(keyword in cleaned for keyword in keywords):
                     value = store.get(field)
+                    if isinstance(value, list):
+                        value = ", ".join(value)
                     if value:
-                        if isinstance(value, list):
-                            value = ", ".join(value)
                         response.say(value, voice="Polly.Ivy")
                         break
             else:
