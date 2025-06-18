@@ -896,24 +896,24 @@ def daisy_voice():
             response.say("Sorry, I couldn’t find that.", voice="Polly.Ivy")
             return Response(str(response), mimetype="text/xml")
 
-        if cleaned in ["yes", "yeah", "yep"]:
-            session["store_confirmed"] = True
-            response.say(store["style"], voice="Polly.Ivy")
-            response.say("Ask me about hours, specials, events, or brands.", voice="Polly.Ivy")
-	    response.say("Anything else, hon?", voice="Polly.Ivy")
-	    gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
-	    gather.say("Go ahead, I’m listenin’.", voice="Polly.Ivy")
-	    response.append(gather)
-        elif cleaned in ["no", "nope"]:
-            session.pop("store_match")
-            response.say("No worries, try saying the store name again.", voice="Polly.Ivy")
-        else:
-            response.say("I didn’t quite catch that.", voice="Polly.Ivy")
-            gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
-            gather.say("yes or no.", voice="Polly.Ivy")
-            response.append(gather)
-        return Response(str(response), mimetype="text/xml")
+    if cleaned in ["yes", "yeah", "yep"]:
+        session["store_confirmed"] = True
+        response.say(store["style"], voice="Polly.Ivy")
+        response.say("Ask me about hours, specials, events, or brands.", voice="Polly.Ivy")
+        response.say("Anything else, hon?", voice="Polly.Ivy")
+        gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
+        gather.say("Go ahead, I’m listenin’.", voice="Polly.Ivy")
+        response.append(gather)
+    elif cleaned in ["no", "nope"]:
+        session.pop("store_match")
+        response.say("No worries, try saying the store name again.", voice="Polly.Ivy")
+    else:
+        response.say("I didn’t quite catch that.", voice="Polly.Ivy")
+        gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
+        gather.say("Yes or no.", voice="Polly.Ivy")
+        response.append(gather)
 
+return Response(str(response), mimetype="text/xml")
     if session.get("store_confirmed"):
         store = next((s for s in stores if s["store_name"].lower() == session.get("store_match", "").lower()), None)
         if not store:
