@@ -10,10 +10,9 @@ from twilio.rest import Client
 import re
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # Needed for session
+app.secret_key = os.urandom(24)
 client = Client(os.environ.get("TWILIO_ACCOUNT_SID"), os.environ.get("TWILIO_AUTH_TOKEN"))
 
-# Daisy store profiles
 stores = [
     {
         "store_name": "Faded Farmhouse",
@@ -98,28 +97,45 @@ def daisy_voice():
     cleaned = re.sub(r"[^\w\s]", "", speech_result).strip().lower()
     response = VoiceResponse()
 
-    if "store_match" in session:
+    if "store_match" in session and "store_confirmed" not in session:
         if cleaned in ["yes", "yeah", "yep"]:
+            session["store_confirmed"] = True
             store = next((s for s in stores if s["store_name"].lower() == session["store_match"].lower()), None)
             if store:
+                session["store_data"] = store
                 response.say(store["blurt_owner_style"], voice="Polly.Ivy")
-                if store["blurt_specials"]:
-                    response.say("Want to hear about specials or events?", voice="Polly.Ivy")
-                    gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
-                    gather.say("Just say specials or events.", voice="Polly.Ivy")
-                    response.append(gather)
-                    return Response(str(response), mimetype="text/xml")
-                session.pop("store_match")
+                response.say("Want to hear about specials, events, categories, brands, or store hours?", voice="Polly.Ivy")
+                gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
+                gather.say("Go ahead, I’m listenin’.", voice="Polly.Ivy")
+                response.append(gather)
                 return Response(str(response), mimetype="text/xml")
-            else:
-                response.say("Sorry, I couldn't find that info anymore.", voice="Polly.Ivy")
         elif cleaned in ["no", "nope"]:
             session.pop("store_match")
             response.say("No worries, try saying the store name again.", voice="Polly.Ivy")
         else:
             response.say("I didn’t quite catch that. Was it yes or no?", voice="Polly.Ivy")
+            gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
+            gather.say("Please say yes or no.", voice="Polly.Ivy")
+            response.append(gather)
+        return Response(str(response), mimetype="text/xml")
+
+    if "store_confirmed" in session and "store_data" in session:
+        store = session["store_data"]
+        if "special" in cleaned:
+            response.say(store["blurt_specials"], voice="Polly.Ivy")
+        elif "event" in cleaned:
+            response.say(store["blurt_events"], voice="Polly.Ivy")
+        elif "brand" in cleaned:
+            response.say(", ".join(store["product_brands"]), voice="Polly.Ivy")
+        elif "categorie" in cleaned or "product" in cleaned:
+            response.say(store["blurt_categories"], voice="Polly.Ivy")
+        elif "hour" in cleaned or "open" in cleaned:
+            response.say(f"Here are the store hours: {store['contact_info']['hours']}", voice="Polly.Ivy")
+        else:
+            response.say("Hmm, I’m not sure what you meant. Try asking about specials, events, brands, or hours.", voice="Polly.Ivy")
+
         gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
-        gather.say("Please say yes or no.", voice="Polly.Ivy")
+        gather.say("Is there anything else you’d like to know?", voice="Polly.Ivy")
         response.append(gather)
         return Response(str(response), mimetype="text/xml")
 
