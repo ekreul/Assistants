@@ -939,9 +939,9 @@ def daisy_voice():
     if matches:
         match_name = matches[0]
         session["store_match"] = match_name
-        response.say(f"Did you mean {match_name.title()}? Say yes or no.", voice="Polly.Ivy")
+        response.say(f"Did you mean {match_name.title()}? Say yes.", voice="Polly.Ivy")
         gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
-        gather.say("Say yes or no.", voice="Polly.Ivy")
+        gather.say("or no.", voice="Polly.Ivy")
         response.append(gather)
     else:
         response.say("I didn’t quite catch that. Is there a store I can help you find?", voice="Polly.Ivy")
