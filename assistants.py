@@ -7,12 +7,11 @@ import smtplib
 from email.message import EmailMessage
 import datetime
 from twilio.rest import Client
-import openai
+import re
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Needed for session
 client = Client(os.environ.get("TWILIO_ACCOUNT_SID"), os.environ.get("TWILIO_AUTH_TOKEN"))
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Daisy store profiles
 stores = [
@@ -96,52 +95,21 @@ stores = [
 @app.route("/daisy", methods=["POST"])
 def daisy_voice():
     speech_result = request.form.get("SpeechResult", "").lower()
+    cleaned = re.sub(r"[^\w\s]", "", speech_result).strip().lower()
     response = VoiceResponse()
 
     if "store_match" in session:
-        if speech_result in ["yes", "yeah", "yep"]:
+        if cleaned in ["yes", "yeah", "yep"]:
             store = next((s for s in stores if s["store_name"].lower() == session["store_match"].lower()), None)
-            session.pop("store_match")
             if store:
-                store_facts = f"""
-You are Daisy, an AI assistant for {store['store_name']} in Columbia, TN.
-Here’s what you know:
-- Owner style: {store['blurt_owner_style']}
-- Categories: {store['blurt_categories']}
-- Specials: {store['blurt_specials']}
-- Events: {store['blurt_events']}
-- Brands: {', '.join(store['product_brands'])}
-- Hours: {store['contact_info']['hours']}
-- Address: {store['contact_info']['address']}
-                """.strip()
-
-                system_prompt = {
-                    "role": "system",
-                    "content": store_facts
-                }
-
-                user_prompt = {
-                    "role": "user",
-                    "content": "Can you tell me more about this store?"
-                }
-
-                try:
-                    chat_response = openai.chat.completions.create(
-                        model="gpt-4o",
-                        messages=[system_prompt, user_prompt]
-                    )
-                    reply = chat_response.choices[0].message.content.strip()
-                except Exception as e:
-                    print("❌ GPT error:", e)
-                    reply = "Sorry hon, somethin’ went sideways. Try again in a sec."
-
                 response.say(store["blurt_owner_style"], voice="Polly.Ivy")
-                response.pause(length=1)
-                response.say(reply, voice="Polly.Ivy")
+                if store["blurt_specials"]:
+                    response.say("Want to hear about specials or events?", voice="Polly.Ivy")
+                session.pop("store_match")
                 return Response(str(response), mimetype="text/xml")
             else:
                 response.say("Sorry, I couldn't find that info anymore.", voice="Polly.Ivy")
-        elif speech_result in ["no", "nope"]:
+        elif cleaned in ["no", "nope"]:
             session.pop("store_match")
             response.say("No worries, try saying the store name again.", voice="Polly.Ivy")
         else:
@@ -151,7 +119,7 @@ Here’s what you know:
         response.append(gather)
         return Response(str(response), mimetype="text/xml")
 
-    matches = difflib.get_close_matches(speech_result, [s["store_name"].lower() for s in stores], n=1, cutoff=0.6)
+    matches = difflib.get_close_matches(cleaned, [s["store_name"].lower() for s in stores], n=1, cutoff=0.6)
     if matches:
         match_name = matches[0]
         session["store_match"] = match_name
