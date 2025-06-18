@@ -105,6 +105,10 @@ def daisy_voice():
                 response.say(store["blurt_owner_style"], voice="Polly.Ivy")
                 if store["blurt_specials"]:
                     response.say("Want to hear about specials or events?", voice="Polly.Ivy")
+                    gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
+                    gather.say("Just say specials or events.", voice="Polly.Ivy")
+                    response.append(gather)
+                    return Response(str(response), mimetype="text/xml")
                 session.pop("store_match")
                 return Response(str(response), mimetype="text/xml")
             else:
