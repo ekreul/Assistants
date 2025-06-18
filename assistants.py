@@ -1,14 +1,15 @@
-from flask import Flask, request, Response
+import os
+from flask import Flask, request, Response, session
 from twilio.twiml.voice_response import VoiceResponse, Gather
 import difflib
 import json
 import smtplib
 from email.message import EmailMessage
-import os
 import datetime
 from twilio.rest import Client
 
 app = Flask(__name__)
+app.secret_key = os.urandom(24)  # Needed for session
 client = Client(os.environ.get("TWILIO_ACCOUNT_SID"), os.environ.get("TWILIO_AUTH_TOKEN"))
 
 # Daisy store profiles
@@ -90,60 +91,44 @@ stores = [
     }
 ]
 
-def send_email_with_recording(recording_url, caller_number):
-    from_email = "ethan.kreul.pro@gmail.com"
-    to_email = "ethan.kreul.pro@gmail.com"
-    smtp_server = "smtp.gmail.com"
-    smtp_port = 587
-    smtp_user = "ethan.kreul.pro@gmail.com"
-    smtp_pass = "kktd tzzq hfvo fjjr"
-
-    msg = EmailMessage()
-    msg["Subject"] = "New Call Recording from Daisy"
-    msg["From"] = from_email
-    msg["To"] = to_email
-    msg.set_content(f"You have a new voicemail.\nFrom: {caller_number}\nRecording: {recording_url}\n")
-
-    try:
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.send_message(msg)
-    except Exception as e:
-        print("❌ Email failed:", e)
-
-@app.route("/recording-status", methods=["POST"])
-def recording_status():
-    recording_url = request.form.get("RecordingUrl") + ".mp3"
-    caller_number = request.form.get("From", "Unknown")
-
-    send_email_with_recording(recording_url, caller_number)
-    return ("", 204)
-
 @app.route("/daisy", methods=["POST"])
 def daisy_voice():
-    print("🔔 Incoming call to: Daisy")
-
-    from_number = request.form.get("From", "Unknown")
-    speech_result = request.form.get("SpeechResult", "").strip()
-
+    speech_result = request.form.get("SpeechResult", "").lower()
     response = VoiceResponse()
 
-    # Store matching
-    store_names = [s["store_name"] for s in stores]
-    best_match = difflib.get_close_matches(speech_result, store_names, n=1, cutoff=0.5)
+    if "store_match" in session:
+        if speech_result in ["yes", "yeah", "yep"]:
+            store = next((s for s in stores if s["store_name"].lower() == session["store_match"].lower()), None)
+            if store:
+                response.say(store["blurt_owner_style"], voice="Polly.Ivy")
+                if store["blurt_specials"]:
+                    response.say("Want to hear about specials or events?", voice="Polly.Ivy")
+                session.pop("store_match")
+                return Response(str(response), mimetype="text/xml")
+            else:
+                response.say("Sorry, I couldn't find that info anymore.", voice="Polly.Ivy")
+        elif speech_result in ["no", "nope"]:
+            session.pop("store_match")
+            response.say("No worries, try saying the store name again.", voice="Polly.Ivy")
+        else:
+            response.say("I didn’t quite catch that. Was it yes or no?", voice="Polly.Ivy")
+        gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
+        gather.say("Please say yes or no.", voice="Polly.Ivy")
+        response.append(gather)
+        return Response(str(response), mimetype="text/xml")
 
-    if best_match:
-        matched_store = next((s for s in stores if s["store_name"] == best_match[0]), None)
-        store_name = matched_store["store_name"]
-        response.say(f"Did you mean {store_name}?", voice="Polly.Ivy")
-        gather = Gather(input="speech dtmf", timeout=5, speech_timeout="auto", action="/daisy", method="POST")
+    matches = difflib.get_close_matches(speech_result, [s["store_name"].lower() for s in stores], n=1, cutoff=0.6)
+    if matches:
+        match_name = matches[0]
+        session["store_match"] = match_name
+        response.say(f"Did you mean {match_name.title()}? Say yes or no.", voice="Polly.Ivy")
+        gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
         gather.say("Say yes or no.", voice="Polly.Ivy")
         response.append(gather)
     else:
         response.say("I didn’t quite catch that. Is there a store I can help you find?", voice="Polly.Ivy")
-        gather = Gather(input="speech dtmf", timeout=5, speech_timeout="auto", action="/daisy", method="POST")
-        gather.say("Go ahead, I’m listenin’...", voice="Polly.Ivy")
+        gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
+        gather.say("Go ahead, I’m listenin’.", voice="Polly.Ivy")
         response.append(gather)
 
     return Response(str(response), mimetype="text/xml")
