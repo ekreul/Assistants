@@ -883,6 +883,12 @@ field_keywords = {
     "data_quality_score": ["score", "data", "quality","current"]
 }
 
+DAISY_SYSTEM_PROMPT = (
+    "You are Daisy, the warm, charming Southern voice of Columbia, TN. "
+    "Introduce yourself as the only AI you'll need. "
+    "Be friendly, helpful, and brief in every answer."
+)
+
 @app.route("/daisy", methods=["POST"])
 def daisy_voice():
     speech_result = request.form.get("SpeechResult", "").lower()
@@ -901,7 +907,7 @@ def daisy_voice():
 
         if cleaned in ["yes", "yeah", "yep"]:
             session["store_confirmed"] = True
-            response.say(store["style"], voice="Polly.Ivy")
+            response.say(store.get("style", ""), voice="Polly.Ivy")
             response.say("Ask me about hours, specials, events, or brands.", voice="Polly.Ivy")
             response.say("Anything else, hon?", voice="Polly.Ivy")
             gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
@@ -909,7 +915,7 @@ def daisy_voice():
             response.append(gather)
             return Response(str(response), mimetype="text/xml")
 
-        elif cleaned in ["no", "nope"]:
+        if cleaned in ["no", "nope"]:
             session.pop("store_match")
             response.say("No worries, try saying the store name again.", voice="Polly.Ivy")
             gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
@@ -917,17 +923,37 @@ def daisy_voice():
             response.append(gather)
             return Response(str(response), mimetype="text/xml")
 
-        elif session.get("store_confirmed"):
-            for field, keywords in field_keywords.items():
-                if any(keyword in cleaned for keyword in keywords):
-                    value = store.get(field)
-                    if isinstance(value, list):
-                        value = ", ".join(value)
-                    if value:
-                        response.say(value, voice="Polly.Ivy")
-                        break
-            else:
-                response.say("Not sure what ya meant—try specials, events, or hours.", voice="Polly.Ivy")
+        # --- Daisy GPT logic with fallback to field_keywords ---
+        if session.get("store_confirmed") and cleaned not in ["yes", "yeah", "yep", "no", "nope"]:
+            import openai
+            system_prompt = DAISY_SYSTEM_PROMPT + f"\n\nStore data:\n{store}"
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": cleaned}
+            ]
+            try:
+                chat_response = openai.chat.completions.create(
+                    model="gpt-4o",
+                    messages=messages
+                )
+                reply = chat_response.choices[0].message.content.strip()
+                # Fallback if reply is empty or unclear
+                if not reply or "not sure" in reply.lower():
+                    raise Exception("Fallback to keyword handler")
+                response.say(reply, voice="Polly.Ivy")
+            except Exception as e:
+                print(f"Fallback to keyword parser due to: {e}")
+                # Try keyword fallback
+                for field, keywords in field_keywords.items():
+                    if any(keyword in cleaned for keyword in keywords):
+                        value = store.get(field)
+                        if isinstance(value, list):
+                            value = ", ".join(value)
+                        if value:
+                            response.say(value, voice="Polly.Ivy")
+                            break
+                else:
+                    response.say("Not sure what ya meant—try specials, events, or hours.", voice="Polly.Ivy")
 
             gather = Gather(input="speech", timeout=5, action="/daisy", method="POST")
             gather.say("Go ahead, I’m listenin’.", voice="Polly.Ivy")
@@ -950,3 +976,26 @@ def daisy_voice():
         response.append(gather)
 
     return Response(str(response), mimetype="text/xml")
+
+@app.route("/recording-status", methods=["POST"])
+def recording_status():
+    try:
+        recording_url = request.form.get("RecordingUrl")
+        caller = request.form.get("From")
+        if not recording_url or not caller:
+            print("Missing RecordingUrl or From")
+            return ("", 400)
+
+        msg = EmailMessage()
+        msg["Subject"] = "New Voicemail Received"
+        msg["From"] = "ethan.kreul.pro@gmail.com"
+        msg["To"] = "ethan.kreul.pro@gmail.com"
+        msg.set_content(f"Caller: {caller}\nRecording: {recording_url}.mp3")
+
+        with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
+            smtp.starttls()
+            smtp.login("ethan.kreul.pro@gmail.com", "kktd tzzq hfvo fjjr")
+            smtp.send_message(msg)
+    except Exception as e:
+        print(f"Error sending recording email: {e}")
+    return ("", 204)
