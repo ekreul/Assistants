@@ -1,6 +1,7 @@
 import os
 from flask import Flask, request, Response, session
 from twilio.twiml.voice_response import VoiceResponse, Gather
+from twilio.twiml.messaging_response import MessagingResponse
 import difflib
 import smtplib
 from email.message import EmailMessage
@@ -976,6 +977,41 @@ def daisy_voice():
         response.append(gather)
 
     return Response(str(response), mimetype="text/xml")
+
+@app.route("/sms", methods=["POST"])
+def sms_reply():
+    from_number = request.form.get("From")
+    body = request.form.get("Body", "").strip().lower()
+    cleaned = re.sub(r"[^\w\s]", "", body)
+    response = MessagingResponse()
+
+    # Try to match store name first
+    matches = difflib.get_close_matches(cleaned, [s["store_name"].lower() for s in stores], n=1, cutoff=0.3)
+    if matches:
+        store = next((s for s in stores if s["store_name"].lower() == matches[0]), None)
+        if store:
+            system_prompt = DAISY_SYSTEM_PROMPT + f"\n\nStore data:\n{store}"
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": cleaned}
+            ]
+            try:
+                import openai
+                chat_response = openai.chat.completions.create(
+                    model="gpt-4o",
+                    messages=messages
+                )
+                reply = chat_response.choices[0].message.content.strip()
+                response.message(reply)
+            except Exception as e:
+                print(f"OpenAI Daisy SMS error: {e}")
+                response.message("Sorry hon, Daisy got tongue-tied. Try again in a sec.")
+        else:
+            response.message("I don’t know that store yet, sugar. Try another?")
+    else:
+        response.message("Hmm, not sure what store you meant. Try again?")
+
+    return str(response)
 
 @app.route("/recording-status", methods=["POST"])
 def recording_status():
