@@ -1024,45 +1024,14 @@ def sms_reply():
     payload = request.get_json(force=True).get("data", {}).get("payload", {})
     from_number = payload.get("from")
     body = payload.get("text", "").strip()
-    cleaned = re.sub(r"[^\w\s]", "", body.lower())
+    print(f"[SMS DEBUG] From: {from_number} | Body: {body}")  # Debug print
 
-    # Track conversation history for this user
-    if from_number not in conversation_memory:
-        conversation_memory[from_number] = []
-    history = conversation_memory[from_number]
-
-    # Try to match store name first
-    matches = difflib.get_close_matches(cleaned, [s["store_name"].lower() for s in stores], n=1, cutoff=0.3)
-    if matches:
-        store = next((s for s in stores if s["store_name"].lower() == matches[0]), None)
-        if store:
-            try:
-                reply = generate_daisy_reply(from_number, cleaned, store)
-                # Save this turn to memory is handled in generate_daisy_reply
-                telnyx.Message.create(
-                    from_="9312088208",
-                    to=from_number,
-                    text=reply
-                )
-            except Exception as e:
-                print(f"OpenAI Daisy SMS error: {e}")
-                telnyx.Message.create(
-                    from_="9312088208",
-                    to=from_number,
-                    text="Sorry hon, Daisy got tongue-tied. Try again in a sec."
-                )
-        else:
-            telnyx.Message.create(
-                from_="9312088208",
-                to=from_number,
-                text="I don’t know that store yet, sugar. Try another?"
-            )
-    else:
-        telnyx.Message.create(
-            from_="9312088208",
-            to=from_number,
-            text="Hmm, not sure what store you meant. Try again?"
-        )
+    # Send static reply for webhook confirmation
+    telnyx.Message.create(
+        from_="9312088208",
+        to=from_number,
+        text="Hi hon! Daisy got your message just fine 💐"
+    )
     return ("", 204)
 
 @app.route("/recording-status", methods=["POST"])
