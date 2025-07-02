@@ -1023,6 +1023,8 @@ def sms_reply():
     # Telnyx-compliant JSON extraction
     payload = request.get_json(force=True).get("data", {}).get("payload", {})
     from_number = payload.get("from")
+    if isinstance(from_number, dict):
+        from_number = from_number.get("phone_number")
     body = payload.get("text", "").strip()
     print(f"[SMS DEBUG] From: {from_number} | Body: {body}")  # Debug print
 
