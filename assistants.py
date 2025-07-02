@@ -8,10 +8,12 @@ from email.message import EmailMessage
 import datetime
 from twilio.rest import Client
 import re
+import telnyx
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 client = Client(os.environ.get("TWILIO_ACCOUNT_SID"), os.environ.get("TWILIO_AUTH_TOKEN"))
+telnyx.api_key = os.environ.get("TELNYX_API_KEY")
 
 # Daisy store profiles
 stores = [
@@ -978,40 +980,90 @@ def daisy_voice():
 
     return Response(str(response), mimetype="text/xml")
 
+# Global dictionary to store per-user SMS conversation history for Daisy
+conversation_memory = {}
+
+def generate_daisy_reply(from_number, user_input, store=None):
+    """
+    Generate a Daisy reply using OpenAI, with per-user conversation memory.
+    """
+    # Load or initialize conversation history
+    history = conversation_memory.setdefault(from_number, [])
+
+    # Build system prompt with optional store context
+    if store:
+        system_prompt = DAISY_SYSTEM_PROMPT + f"\n\nStore data:\n{store}"
+    else:
+        system_prompt = DAISY_SYSTEM_PROMPT
+
+    # Build OpenAI chat messages
+    messages = [{"role": "system", "content": system_prompt}]
+    for turn in history:
+        messages.append({"role": "user", "content": turn["user"]})
+        messages.append({"role": "assistant", "content": turn["assistant"]})
+    messages.append({"role": "user", "content": user_input})
+
+    # Call OpenAI
+    import openai
+    chat_response = openai.chat.completions.create(
+        model="gpt-4o",
+        messages=messages
+    )
+    reply = chat_response.choices[0].message.content.strip()
+
+    # Add to memory and trim to last 10 exchanges
+    history.append({"user": user_input, "assistant": reply})
+    if len(history) > 10:
+        conversation_memory[from_number] = history[-10:]
+
+    return reply
+
 @app.route("/sms", methods=["POST"])
 def sms_reply():
-    from_number = request.form.get("From")
-    body = request.form.get("Body", "").strip().lower()
-    cleaned = re.sub(r"[^\w\s]", "", body)
-    response = MessagingResponse()
+    # Telnyx-compliant JSON extraction
+    payload = request.get_json(force=True).get("data", {}).get("payload", {})
+    from_number = payload.get("from")
+    body = payload.get("text", "").strip()
+    cleaned = re.sub(r"[^\w\s]", "", body.lower())
+
+    # Track conversation history for this user
+    if from_number not in conversation_memory:
+        conversation_memory[from_number] = []
+    history = conversation_memory[from_number]
 
     # Try to match store name first
     matches = difflib.get_close_matches(cleaned, [s["store_name"].lower() for s in stores], n=1, cutoff=0.3)
     if matches:
         store = next((s for s in stores if s["store_name"].lower() == matches[0]), None)
         if store:
-            system_prompt = DAISY_SYSTEM_PROMPT + f"\n\nStore data:\n{store}"
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": cleaned}
-            ]
             try:
-                import openai
-                chat_response = openai.chat.completions.create(
-                    model="gpt-4o",
-                    messages=messages
+                reply = generate_daisy_reply(from_number, cleaned, store)
+                # Save this turn to memory is handled in generate_daisy_reply
+                telnyx.Message.create(
+                    from_="9312088208",
+                    to=from_number,
+                    text=reply
                 )
-                reply = chat_response.choices[0].message.content.strip()
-                response.message(reply)
             except Exception as e:
                 print(f"OpenAI Daisy SMS error: {e}")
-                response.message("Sorry hon, Daisy got tongue-tied. Try again in a sec.")
+                telnyx.Message.create(
+                    from_="9312088208",
+                    to=from_number,
+                    text="Sorry hon, Daisy got tongue-tied. Try again in a sec."
+                )
         else:
-            response.message("I don’t know that store yet, sugar. Try another?")
+            telnyx.Message.create(
+                from_="9312088208",
+                to=from_number,
+                text="I don’t know that store yet, sugar. Try another?"
+            )
     else:
-        response.message("Hmm, not sure what store you meant. Try again?")
-
-    return str(response)
+        telnyx.Message.create(
+            from_="9312088208",
+            to=from_number,
+            text="Hmm, not sure what store you meant. Try again?"
+        )
+    return ("", 204)
 
 @app.route("/recording-status", methods=["POST"])
 def recording_status():
