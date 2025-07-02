@@ -1022,18 +1022,25 @@ def generate_daisy_reply(from_number, user_input, store=None):
 def sms_reply():
     # Telnyx-compliant JSON extraction
     payload = request.get_json(force=True).get("data", {}).get("payload", {})
-    from_number = payload.get("from")
-    if isinstance(from_number, dict):
-        from_number = from_number.get("phone_number")
+    from_field = payload.get("from")
+    # Safely extract the phone number string
+    if isinstance(from_field, dict):
+        from_number = from_field.get("phone_number")
+    else:
+        from_number = from_field
     body = payload.get("text", "").strip()
     print(f"[SMS DEBUG] From: {from_number} | Body: {body}")  # Debug print
 
     # Send static reply for webhook confirmation
-    telnyx.Message.create(
-        from_="+19312088208",
-        to=from_number,
-        text="Hi hon! Daisy got your message just fine 💐"
-    )
+    if from_number:
+        telnyx.Message.create(
+            from_="+19312088208",
+            to=from_number,
+            text="Hi hon! Daisy got your message just fine 💐"
+        )
+    else:
+        print("[SMS ERROR] No valid phone number found in payload.")
+
     return ("", 204)
 
 @app.route("/recording-status", methods=["POST"])
