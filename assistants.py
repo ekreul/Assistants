@@ -1028,7 +1028,7 @@ def sms_reply():
 
     # Send static reply for webhook confirmation
     telnyx.Message.create(
-        from_="9312088208",
+        from_="+19312088208",
         to=from_number,
         text="Hi hon! Daisy got your message just fine 💐"
     )
