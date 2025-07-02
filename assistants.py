@@ -1020,15 +1020,23 @@ def generate_daisy_reply(from_number, user_input, store=None):
 
 @app.route("/sms", methods=["POST"])
 def sms_reply():
-    # Extract payload and sanitize input
-    payload = request.get_json(force=True).get("data", {}).get("payload", {})
+    # Extract and validate payload
+    try:
+        data = request.get_json(force=True)
+        payload = data.get("data", {}).get("payload", {})
+    except Exception as e:
+        print(f"[SMS ERROR] Could not parse JSON payload: {e}")
+        return ("", 400)
+
+    # Extract and validate the from number
     from_field = payload.get("from")
-    # Safely extract the phone number string
     from_number = None
     if isinstance(from_field, dict):
         from_number = from_field.get("phone_number")
+        print(f"[SMS DEBUG] Extracted from_number from dict: {from_number}")
     elif isinstance(from_field, str):
         from_number = from_field
+        print(f"[SMS DEBUG] Extracted from_number from string: {from_number}")
     else:
         print(f"[SMS ERROR] Unexpected 'from' field type: {type(from_field)} | Value: {from_field}")
 
@@ -1038,7 +1046,10 @@ def sms_reply():
     DAISY_NUMBER = "+19312088208"
     ETHAN_NUMBER = "+12032803944"
 
-    # Prevent Daisy from replying to herself
+    # Ignore loops: don't reply to Daisy's own number
+    if not from_number:
+        print("[SMS ERROR] No valid phone number found in payload. No reply sent.")
+        return ("", 204)
     if from_number == DAISY_NUMBER:
         print(f"[SMS SKIP] Ignoring message from Daisy's own number ({DAISY_NUMBER}) to prevent loop.")
         return ("", 204)
@@ -1054,7 +1065,7 @@ def sms_reply():
         return ("", 204)
 
     # Normal Daisy reply
-    if from_number:
+    try:
         reply = generate_daisy_reply(from_number, body)
         telnyx.Message.create(
             from_=DAISY_NUMBER,
@@ -1062,8 +1073,8 @@ def sms_reply():
             text=reply
         )
         print(f"[SMS OUTGOING] Reply sent to {from_number}")
-    else:
-        print("[SMS ERROR] No valid phone number found in payload. No reply sent.")
+    except Exception as e:
+        print(f"[SMS ERROR] Failed to send reply: {e}")
 
     return ("", 204)
 
