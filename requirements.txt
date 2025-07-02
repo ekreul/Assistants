@@ -3,3 +3,5 @@ openai==1.82.0
 twilio==9.6.1
 requests==2.32.3
 gunicorn==21.2.0
+telnyx
+telnyx  
