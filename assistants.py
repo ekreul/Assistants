@@ -1020,23 +1020,27 @@ def generate_daisy_reply(from_number, user_input, store=None):
 
 @app.route("/sms", methods=["POST"])
 def sms_reply():
-    # Telnyx-compliant JSON extraction
+    # Extract payload and sanitize input
     payload = request.get_json(force=True).get("data", {}).get("payload", {})
     from_field = payload.get("from")
     # Safely extract the phone number string
+    from_number = None
     if isinstance(from_field, dict):
         from_number = from_field.get("phone_number")
-    else:
+    elif isinstance(from_field, str):
         from_number = from_field
-    body = payload.get("text", "").strip()
-    print(f"[SMS DEBUG] From: {from_number} | Body: {body}")  # Log all incoming numbers and bodies
+    else:
+        print(f"[SMS ERROR] Unexpected 'from' field type: {type(from_field)} | Value: {from_field}")
+
+    body = payload.get("text", "").strip() if "text" in payload else ""
+    print(f"[SMS INCOMING] From: {from_number} | Body: {body}")
 
     DAISY_NUMBER = "+19312088208"
     ETHAN_NUMBER = "+12032803944"
 
     # Prevent Daisy from replying to herself
     if from_number == DAISY_NUMBER:
-        print("[SMS INFO] Ignoring message from Daisy's own number to prevent loop.")
+        print(f"[SMS SKIP] Ignoring message from Daisy's own number ({DAISY_NUMBER}) to prevent loop.")
         return ("", 204)
 
     # Special test reply for Ethan's number
@@ -1046,6 +1050,7 @@ def sms_reply():
             to=ETHAN_NUMBER,
             text="🌼 Test reply to Ethan confirmed!"
         )
+        print(f"[SMS OUTGOING] Test reply sent to Ethan ({ETHAN_NUMBER})")
         return ("", 204)
 
     # Normal Daisy reply
@@ -1056,8 +1061,9 @@ def sms_reply():
             to=from_number,
             text=reply
         )
+        print(f"[SMS OUTGOING] Reply sent to {from_number}")
     else:
-        print("[SMS ERROR] No valid phone number found in payload.")
+        print("[SMS ERROR] No valid phone number found in payload. No reply sent.")
 
     return ("", 204)
 
