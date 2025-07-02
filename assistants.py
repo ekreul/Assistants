@@ -1029,14 +1029,32 @@ def sms_reply():
     else:
         from_number = from_field
     body = payload.get("text", "").strip()
-    print(f"[SMS DEBUG] From: {from_number} | Body: {body}")  # Debug print
+    print(f"[SMS DEBUG] From: {from_number} | Body: {body}")  # Log all incoming numbers and bodies
 
-    # Send static reply for webhook confirmation
-    if from_number:
+    DAISY_NUMBER = "+19312088208"
+    ETHAN_NUMBER = "+12032803944"
+
+    # Prevent Daisy from replying to herself
+    if from_number == DAISY_NUMBER:
+        print("[SMS INFO] Ignoring message from Daisy's own number to prevent loop.")
+        return ("", 204)
+
+    # Special test reply for Ethan's number
+    if from_number == ETHAN_NUMBER:
         telnyx.Message.create(
-            from_="+19312088208",
+            from_=DAISY_NUMBER,
+            to=ETHAN_NUMBER,
+            text="🌼 Test reply to Ethan confirmed!"
+        )
+        return ("", 204)
+
+    # Normal Daisy reply
+    if from_number:
+        reply = generate_daisy_reply(from_number, body)
+        telnyx.Message.create(
+            from_=DAISY_NUMBER,
             to=from_number,
-            text="Hi hon! Daisy got your message just fine 💐"
+            text=reply
         )
     else:
         print("[SMS ERROR] No valid phone number found in payload.")
